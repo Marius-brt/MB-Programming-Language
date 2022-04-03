@@ -1,11 +1,17 @@
 #include "main.h"
 
-int main()
+int main(int argc, char *argv[])
 {
     vector<string> lines = readFile("main.mb");
-    vector<string> cpp = Parse(lines);
-    /*for (string l : cpp)
-        cout << l << endl;*/
+    parserResult res = Parse(lines);
+    cout << "CPP ---------" << endl;
+    for (string l : res.cpp)
+        cout << l << endl;
+    cout << "-------------" << endl;
+    cout << "Header ------" << endl;
+    for (string l : res.header)
+        cout << l << endl;
+    cout << "-------------" << endl;
     cout << "Ok!" << endl;
     return 0;
 }

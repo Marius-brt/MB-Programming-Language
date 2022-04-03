@@ -12,11 +12,25 @@ using namespace std;
 
 // Parser
 
-vector<string> Parse(vector<string> lines);
+struct parserResult
+{
+	vector<string> cpp;
+	vector<string> header;
+};
+parserResult Parse(vector<string> code);
 
 // Files
 
 vector<string> readFile(string fileName);
+
+// Variables
+
+bool isValidVarName(string s);
+bool isChar(string s);
+bool isString(string s);
+bool isFloat(string s);
+bool isInt(string s);
+bool checkQuotes(string s);
 
 // Utils
 
@@ -29,13 +43,6 @@ vector<string> Split(string str, string seperator);
 vector<string> Split(string str, char seperator);
 vector<string> SplitOnce(string str, char seperator);
 string JoinAt(vector<string> str, int index, string join = "");
-template<class T>
-bool Contains(T element, T list[])
-{
-    for (int i = 0; i < sizeof(list); i++)
-        if (list[i] == element)
-            return true;
-    return false;
-}
+bool Contains(string element, vector<string> list);
 
 #endif 

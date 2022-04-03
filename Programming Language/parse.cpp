@@ -1,17 +1,19 @@
 #include "main.h"
 
-string braceTokens[] = { "void", "class", "switch" };
-string varTokens[] = { "string", "int", "float"};
+vector<string> braceTokens { "void" };
+vector<string> varTokens { "string", "int", "float", "char"};
+vector<string> reservedNames { "MB_ARGC", "MB_ARGV", "MB_I" };
 
 struct varDeclaration
 {
-	string type, name;
+	string type, name, val;
+	bool isArray, hasDefaultVal;
 };
 
 struct voidDeclaration
 {
 	string name;
-	map<string, string> parameters;
+	vector<varDeclaration> parameters;
 	vector<string> returnVars;
 };
 
@@ -19,72 +21,6 @@ void Error(string msg)
 {
 	cout << "ERROR: " << msg << endl;
 	exit(1);
-}
-
-bool checkQuotes(string s)
-{
-	s = trim(s);
-	if (s.length() < 2)
-		return false;
-	if (s[0] != s[s.length() - 1])
-		return false;
-	if (s[0] == '\'' && s.length() > 4)
-		return false;
-	if (s[0] == '\'' && s.length() == 4 && s[1] != '\\')
-		return false;
-	if (s[0] == '\'')
-		return true;
-	if (s.length() > 2)
-	{
-		int i = 1;
-		while (i < s.length() - 1)
-		{
-			if (s[i] == '"' && (i - 1 == 0 || s[i - 1] != '\\'))
-				return false;
-			i++;
-		}
-	}
-	return true;
-}
-
-bool isInt(string s)
-{
-	if (s.length() == 0)
-		return false;
-	int i = -1;
-	while (s[++i])
-		if (s[i] < '0' || s[i] > '9')
-			return false;
-	return true;
-}
-
-bool isFloat(string s)
-{
-	if (s.length() == 0 || s[s.length() - 1] == '.')
-		return false;
-	int i = -1;
-	while (s[++i])
-		if ((s[i] < '0' || s[i] > '9') && s[i] != '.')
-			return false;
-	return true;
-}
-
-bool isString(string s)
-{
-	return s.length() > 1 && startsWith(s, "\"") && checkQuotes(s);
-}
-
-bool isValidVarName(string s)
-{
-	if (s.length() == 0)
-		return false;
-	if (s[0] >= '0' && s[0] <= '9')
-		return false;
-	int i = -1;
-	while (s[++i])
-		if ((s[i] < 'a' || s[i] > 'z') && (s[i] < 'A' || s[i] > 'Z') && s[i] != '_' && (s[0] < '0' && s[0] > '9'))
-			return false;
-	return true;
 }
 
 varDeclaration parseVarDeclaration(string ln, vector<string> splt, string line, bool checkSemicolon = true)
@@ -109,21 +45,32 @@ varDeclaration parseVarDeclaration(string ln, vector<string> splt, string line, 
 		if(checkSemicolon)
 			val.pop_back();
 		val = trim(val);
+		data.val = val;
+		data.hasDefaultVal = true;
 		if (splt[0] == "int")
 		{
 			if (!isInt(val))
-				Error("Invalid value (line " + line + ")");
+				Error("Invalid int value (line " + line + ")");
 		}
 		else if (splt[0] == "float")
 		{
 			if (!isFloat(val))
-				Error("Invalid value (line " + line + ")");
+				Error("Invalid float value (line " + line + ")");
 		}
 		else if (splt[0] == "string")
 		{
 			if (!isString(val))
-				Error("Invalid value (line " + line + ")");
+				Error("Invalid string value (line " + line + ")");
 		}
+		else if (splt[0] == "char")
+		{
+			if (!isChar(val))
+				Error("Invalid char value (line " + line + ")");
+		}
+	}
+	else
+	{
+		data.hasDefaultVal = false;
 	}
 	return data;
 }
@@ -154,7 +101,7 @@ voidDeclaration ParseVoidDeclaration(string ln, string line)
 		{
 			p = trim(p);
 			varDeclaration v = parseVarDeclaration(p, Split(p, ' '), line, false);
-			data.parameters.insert(data.parameters.end(), make_pair(v.name, v.type));
+			data.parameters.push_back(v);
 		}
 	}
 	if (splt2.size() == 2)
@@ -186,9 +133,10 @@ vector<string> ParseBetweenBraces(vector<string> lines, int start, int end, vect
 	return cpp;
 }
 
-vector<string> Parse(vector<string> code)
+parserResult Parse(vector<string> code)
 {
 	vector<string> cpp;
+	vector<string> header;
 	vector<string> lines;
 	vector<int> linesCount;
 	for (int i = 0; i < code.size(); i++)
@@ -198,7 +146,7 @@ vector<string> Parse(vector<string> code)
 		for (int y = 0; y < splt.size(); y++)
 		{
 			splt[y] = trim(splt[y]);
-			if (splt[y] != "")
+			if (splt[y] != "" && !startsWith(splt[y], "//"))
 			{
 				if (y + 1 < splt.size())
 					splt[y] += ';';
@@ -231,64 +179,104 @@ vector<string> Parse(vector<string> code)
 			lines.push_back("");
 		}
 	}
-	map<string, string> variables;
+	map<string, varDeclaration> variables;
 	map<string, voidDeclaration> voids;
-	bool waitForBrace = false;
 	int openBraces = 0, rl = 0, lnI = 1;
 	for (int i = 0; i < lines.size(); i++)
 	{
-		string lineNb = to_string(rl);
+		string lineNb = to_string(rl+1);
 		string ln = trim(lines[i]);
 		if (ln != "") {
 			vector<string> splt = Split(ln, ' ');
-			if (splt.size() > 0)
+			if (ln == "}")
 			{
-				if (waitForBrace) {
-					if (startsWith(ln, "{"))
-					{
-						openBraces++;
-						waitForBrace = false;
-					}
-					else 					
-						Error("Missing opening brace (line " + lineNb + ")");
-				}
-				if (ln == "}")
-				{
-					openBraces--;
-					if (openBraces < 0)
-						Error("Extra '}' (line " + lineNb + ")");
-				}				
-				else if (Contains(splt[0], braceTokens))
+				openBraces--;
+				if (openBraces < 0)
+					Error("Extra '}' (line " + lineNb + ")");
+				cpp.push_back("}");
+			}
+			else if (Contains(splt[0], braceTokens))
+			{
+				if (splt[0] == "void")
 				{
 					voidDeclaration data = ParseVoidDeclaration(trim(ln), lineNb);
 					if (voids.find(data.name) != voids.end())
 						Error("Function '" + data.name + "' already declared (line " + lineNb + ")");
 					if (variables.find(data.name) != variables.end())
 						Error("A variable is already declared with the name '" + data.name + "' (line " + lineNb + ")");
-					for (auto const& x : data.parameters)
-						if (variables.find(x.first) != variables.end())
-							Error("Variable '" + x.first + "' already declared (line " + lineNb + ")");
+					if (Contains(data.name, reservedNames))
+						Error("'" + data.name + "' is a reserved name. Please change the name of your function (line " + lineNb + ")");
+					if (data.name == "main")
+					{
+						if (data.parameters.size() > 1)
+							Error("Too many parameters for 'main' function (line " + lineNb + ")");
+						if (data.parameters.size() == 1 && (data.parameters[0].type != "string" || data.parameters[0].hasDefaultVal))
+							Error("Wrong parameter for 'main' function -> main() or main(string args[]) (line " + lineNb + ")");
+						if (data.returnVars.size() > 0)
+							Error("'main' function doesn't have return value (line " + lineNb + ")");
+						if (data.parameters.size() == 0)
+							cpp.push_back("void main()\n{");
+						else
+							cpp.push_back("void main(int MB_ARGC, char *MB_ARGV[])\n{");
+					}
+					else
+					{
+						string params = "", headerParams = "";
+						for (varDeclaration var : data.parameters)
+						{
+							if (variables.find(var.name) != variables.end())
+								Error("Variable '" + var.name + "' already declared (line " + lineNb + ")");
+							params += var.type + " " + var.name;
+							headerParams += var.type + " " + var.name;
+							if (var.val != "")
+								headerParams += "=" + var.val;
+							params += ",";
+							headerParams += ",";
+						}						
+						if (params != "")
+						{
+							params.pop_back();
+							headerParams.pop_back();
+						}
+						if (data.returnVars.size() == 0)
+						{
+							cpp.push_back("void " + data.name + "(" + params + ")");
+							header.push_back("void " + data.name + "(" + headerParams + ");");
+						}
+						else if (data.returnVars.size() == 1)
+						{
+							cpp.push_back(data.returnVars[0] + " " + data.name + "(" + params + ")");
+							header.push_back(data.returnVars[0] + " " + data.name + "(" + headerParams + ");");
+						}
+						else
+							Error("Multiple return values not yet supported (line " + lineNb + ")");
+						cpp.push_back("{");
+					}
 					if (i + 1 >= lines.size() || lines[i + 1] != "{")
 						Error("Missing '{' (line " + lineNb + ")");
 					openBraces++;
 					i++;
 					voids.insert(voids.end(), make_pair(data.name, data));
-				} 
-				else if (Contains(splt[0], varTokens))
-				{
-					varDeclaration data = parseVarDeclaration(ln, splt, lineNb);
-					if (variables.find(data.name) != variables.end())
-						Error("Variable '" + data.name + "' already declared (line " + lineNb + ")");
-					if (voids.find(data.name) != voids.end())
-						Error("A function is already declared with the name '" + data.name + "' (line " + lineNb + ")");
-					variables.insert(variables.end(), make_pair(data.name, data.type));
-					cpp.push_back(ln);
-				}
-				else if (ln == "{")
-				{
-					Error("Extra '{' (line " + lineNb + ")");
 				}
 			}
+			else if (Contains(splt[0], varTokens))
+			{
+				varDeclaration data = parseVarDeclaration(ln, splt, lineNb);
+				if (variables.find(data.name) != variables.end())
+					Error("Variable '" + data.name + "' already declared (line " + lineNb + ")");
+				if (voids.find(data.name) != voids.end())
+					Error("A function is already declared with the name '" + data.name + "' (line " + lineNb + ")");
+				if (Contains(data.name, reservedNames))
+					Error("'" + data.name + "' is a reserved name. Please change the name of your variable (line " + lineNb + ")");
+				variables.insert(variables.end(), make_pair(data.name, data));
+				cpp.push_back(ln);
+			}
+			else if (ln == "{")
+			{
+				Error("Extra '{' (line " + lineNb + ")");
+			}
+			else
+				Error("Invalid token '" + splt[0] + "' (line " + lineNb + ")");
 		}
 		lnI++;
 		if (rl < linesCount.size() && lnI >= linesCount[rl])
@@ -297,9 +285,12 @@ vector<string> Parse(vector<string> code)
 			rl++;
 		}
 	}
-	if (waitForBrace) 
-		Error("Missing opening brace at line " + to_string(code.size()));
 	if(openBraces > 0)
 		Error("Missing closing brace at line " + to_string(code.size()));
-	return cpp;
+	if (voids.find("main") == voids.end())
+		Error("Missing 'main' function.");
+	parserResult res;
+	res.cpp = cpp;
+	res.header = header;
+	return res;
 }

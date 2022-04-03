@@ -20,7 +20,13 @@ std::string trim(const std::string& s) {
 
 bool startsWith(string str, string prefix)
 {
-    return str.rfind(prefix, 0) == 0;
+    if (str.length() < prefix.length())
+        return false;
+    int i = -1;
+    while (prefix[++i])
+        if (prefix[i] != str[i])
+            return false;
+    return true;
 }
 
 bool startsWith(string str, string prefixes[])
@@ -70,7 +76,7 @@ vector<string> Split(string str, char seperator)
                 quoteType = str[i];
             }
         }
-        else if (str[i] == seperator || i == str.length())
+        else if (!inQuote && (str[i] == seperator || i == str.length()))
         {
             endIndex = i;
             string subStr = "";
@@ -137,4 +143,12 @@ string JoinAt(vector<string> str, int index, string join)
         index++;
     }
     return res;
+}
+
+bool Contains(string element, vector<string> list)
+{
+    for (string el : list)
+        if (el == element)
+            return true;
+    return false;
 }
