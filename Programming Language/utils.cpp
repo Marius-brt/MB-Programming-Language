@@ -56,9 +56,21 @@ vector<string> Split(string str, char seperator)
     if (str.length() == 0)
         return splts;
     int i = 0, startIndex = 0, endIndex = 0;
+    bool inQuote = false;
+    char quoteType;
     while (i <= str.length())
     {
-        if (str[i] == seperator || i == str.length())
+        if (str[i] == '"' || str[i] == '\'')
+        {
+            if (inQuote && str[i] == quoteType)
+                inQuote = false;
+            else if (!inQuote)
+            {
+                inQuote = true;
+                quoteType = str[i];
+            }
+        }
+        else if (str[i] == seperator || i == str.length())
         {
             endIndex = i;
             string subStr = "";
@@ -77,17 +89,28 @@ vector<string> SplitOnce(string str, char seperator)
     if (str.length() == 0)
         return splts;
     int i = 0, startIndex = 0, endIndex = 0;
-    bool ended = false;
+    bool ended = false, inQuote = false;
+    char quoteType;
     while (!ended && i <= str.length())
     {
-        if (str[i] == seperator || i == str.length())
+        if (str[i] == '"' || str[i] == '\'')
+        {
+            if (inQuote && str[i] == quoteType)
+                inQuote = false;
+            else if (!inQuote)
+            {
+                inQuote = true;
+                quoteType = str[i];
+            }
+        }
+        else if (str[i] == seperator && !inQuote)
         {
             endIndex = i;
             string before = "";
             before.append(str, startIndex, endIndex - startIndex);
             splts.push_back(before);
             startIndex = endIndex + 1;
-            if (i + 1 < str.length() - 1) {
+            if (i + 1 < str.length()) {
                 string after = "";
                 after.append(str, startIndex, str.length() - startIndex);
                 splts.push_back(after);

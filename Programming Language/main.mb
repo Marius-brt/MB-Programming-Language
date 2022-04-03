@@ -1,3 +1,18 @@
 string oZerA_ = "";
 int t = 0;
 float u = 0.4;
+
+string test = "";float v = 0.4;
+
+void test3(int te, string oui = "") : int, string 
+{
+
+}
+
+
+void test2(int tes, string oui = "") : int, string 
+{
+
+}
+
+
